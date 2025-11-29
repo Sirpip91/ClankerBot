@@ -14,7 +14,7 @@ load_dotenv()  # This loads variables from .env
 # === CONFIG ===
 TOKEN = os.getenv("DISCORD_TOKEN")
 CHANNEL_ID = 1300862501407162449  # convert to int
-CHECK_INTERVAL = 1800  # 30 min
+CHECK_INTERVAL = 30000  # 30 min
 
 # === test ===
 print("TOKEN:", TOKEN)  # Debug to make sure it loaded
@@ -50,42 +50,6 @@ def get_game_price(appid):
             return None, 0, data.get("name", f"AppID {appid}")
     except:
         return None, 0, f"AppID {appid}"
-
-
-def parse_steam_url(url_or_appid):
-    """
-    Accepts a Steam URL or AppID and returns AppID as string.
-    Examples:
-      https://store.steampowered.com/app/570/Dota_2/ -> 570
-      570 -> 570
-    """
-    if url_or_appid.isdigit():
-        return url_or_appid
-    import re
-    match = re.search(r"/app/(\d+)", url_or_appid)
-    if match:
-        return match.group(1)
-    return None
-
-def get_game_info(appid):
-    """Fetch game info: price, discount, name, thumbnail, link"""
-    url = f"https://store.steampowered.com/api/appdetails?appids={appid}&cc=us&l=en"
-    try:
-        resp = requests.get(url, timeout=10).json()
-        data = resp[str(appid)]["data"]
-        name = data.get("name", f"AppID {appid}")
-        img = data.get("header_image")
-        link = f"https://store.steampowered.com/app/{appid}"
-        if "price_overview" in data:
-            price = data["price_overview"]["final"] / 100
-            discount = data["price_overview"]["discount_percent"]
-        else:
-            price = None
-            discount = 0
-        return {"name": name, "price": price, "discount": discount, "img": img, "link": link}
-    except:
-        return {"name": f"AppID {appid}", "price": None, "discount": 0, "img": None, "link": f"https://store.steampowered.com/app/{appid}"}
-
 
 # === DISCORD CLIENT ===
 intents = discord.Intents.default()
@@ -171,37 +135,6 @@ async def check_prices():
 async def on_ready():
     print(f"{BOT_NAME} is online!")
     client.loop.create_task(check_prices())
-
-@client.event
-async def on_message(message):
-    if message.author == client.user:
-        return
-
-    content = message.content.strip()
-
-    # Example: !check <SteamAppID or URL>
-    if content.startswith("!check"):
-        try:
-            url_or_appid = content.split()[1]
-            appid = parse_steam_url(url_or_appid)
-            if not appid:
-                await message.channel.send("⚠ Could not parse AppID from the link or input.")
-                return
-
-            info = get_game_info(appid)
-            embed = discord.Embed(
-                title=info["name"],
-                url=info["link"],
-                description=f"Price: {'$'+str(info['price']) if info['price'] else 'Free/Unknown'}\nDiscount: {info['discount']}%",
-                color=0x1abc9c
-            )
-            if info["img"]:
-                embed.set_thumbnail(url=info["img"])
-
-            await message.channel.send(embed=embed)
-        except:
-            await message.channel.send("Usage: `!check <SteamAppID or Steam Store URL>`")
-
 
 
 
